@@ -1,12 +1,15 @@
+import { useState, useContext } from 'react';
+import { useRouter } from 'next/router';
 import { Box, Button, Chip, Grid, Typography } from '@mui/material';
-import { NextPage, GetServerSideProps, GetStaticPaths, GetStaticProps } from 'next';
+import { NextPage, GetStaticPaths, GetStaticProps } from 'next';
 
 import { ShopLayout } from '../../components/layouts';
 import { ProductSlideshow, SizeSelector } from '../../components/products';
 import { ItemCounter } from '../../components/ui/ItemCounter';
 
 import { dbProducts } from '../../database';
-import { IProduct } from '../../interfaces';
+import { ICartProduct, IProduct, ISize } from '../../interfaces';
+import { CartContext } from '../../context';
 
 
 interface Props {
@@ -16,10 +19,44 @@ interface Props {
 
 const ProductPage:NextPage<Props> = ({ product }) => {
 
-  // const router = useRouter();
-  // const { products: product, isLoading } = useProducts(`/products/${ router.query.slug }`);
+  const { addProductToCart } = useContext( CartContext );
 
+  const router = useRouter();
 
+  const [tempCartProduct, setTempCartProduct] = useState<ICartProduct>({
+    _id: product._id,
+    image: product.images[0],
+    price: product.price,
+    size: undefined,
+    slug: product.slug,
+    title: product.title,
+    gender: product.gender,
+    quantity: 1,
+  });
+
+  const selectedSize = ( size: ISize ) => {
+    console.log('Entro en selectedSize size: ', size);
+    setTempCartProduct( currentProduct => ({
+      ...currentProduct,
+      size
+    }))
+    console.log(tempCartProduct);
+
+  }
+
+  const onUpdateQuantity = ( quantity: number ) => {
+    setTempCartProduct( currentProduct => ({
+      ...currentProduct,
+      quantity
+    }));
+  };
+
+  const onAddProduct = () => {
+    if ( !tempCartProduct.size ) return;
+
+    addProductToCart(tempCartProduct);
+    router.push('/cart');
+  }
 
   return (
     <ShopLayout title={ product.title } pageDescription={ product.description }>
@@ -42,20 +79,40 @@ const ProductPage:NextPage<Props> = ({ product }) => {
             {/* Cantidad */}
             <Box sx={{ my: 2 }}>
               <Typography variant='subtitle2'>Cantidad</Typography>
-              <ItemCounter />
+
+              <ItemCounter
+                currentValue={ tempCartProduct.quantity }
+                updatedQuantity={ onUpdateQuantity }
+                maxValue={ product.inStock > 10 ? 10: product.inStock }
+              />
+
               <SizeSelector 
-                // selectedSize={ product.sizes[2] } 
+                selectedSize={ tempCartProduct.size } 
                 sizes={ product.sizes }
+                onSelectedSize={ selectedSize }
               />
             </Box>
 
 
-            {/* Agregar al carrito */}
-            <Button color="secondary" className='circular-btn'>
-              Agregar al carrito
-            </Button>
-
-            {/* <Chip label="No hay disponibles" color="error" variant='outlined' /> */}
+            {
+              (product.inStock > 0) 
+                ? (
+                  <Button 
+                    color="secondary" 
+                    className='circular-btn'
+                    onClick={ onAddProduct }  
+                  >
+                      {
+                        tempCartProduct.size 
+                          ? 'Agregar al carrito'
+                          : 'Selecciona una talla'
+                      }
+                  </Button>
+                )
+                : (
+                  <Chip label="No hay disponibles" color="error" variant="outlined" /> 
+                )
+            }
 
             {/* Descripción */}
             <Box sx={{ mt:3 }}>
